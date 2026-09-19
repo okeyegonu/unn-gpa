@@ -47,6 +47,7 @@ npm run build         # rebuild the single-file offline copy
 npm run smoke         # end-to-end test in a real Firefox   (needs geckodriver)
 npm run smoke:mobile  # the same at three phone viewports
 npm run smoke:offline # test the single-file build opened from file://
+npm run smoke:idempotency  # check that no repetition makes the record grow
 ```
 
 The `smoke` targets need `geckodriver --port 4444` running in another terminal
@@ -199,6 +200,16 @@ grade or sitting. The tests assert that by saving the same state thirty times
 and checking the record is unchanged, and by confirming a load/save cycle is a
 fixed point.
 
+**What repetition cannot do.** `npm run smoke:idempotency` drives a real browser
+through every way a record might grow and checks that none of them does:
+submitting the add-course form eight times in one burst adds one course;
+re-recording the same grade, or the same failed sitting, changes nothing;
+four reloads leave the stored record byte-identical; saving the same edit five
+times adds no course and keeps the course's id, so its grades survive; and
+importing the same file twice gives the same list rather than twice as much.
+Removing a course and adding it back gives a genuinely new course with no grade
+carried over from the old one.
+
 Anything read back is repaired rather than trusted: a course with no id or no
 usable unit load is discarded, a grade for a course that is not in the list is
 dropped, and a profile with nonsense in it falls back to the defaults.
@@ -244,6 +255,7 @@ unn-gpa/
 ├── tools/
 │   ├── build-single-file.mjs       the offline single-file build
 │   ├── browser-smoke.mjs           end-to-end test in real Firefox
+│   ├── idempotency-smoke.mjs       checks that no repetition makes the record grow
 │   ├── mobile-smoke.mjs            phone-viewport layout checks
 │   └── file-url-smoke.mjs          offline-copy checks
 │
