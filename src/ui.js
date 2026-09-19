@@ -125,8 +125,15 @@ function profile() {
   return { ...DEFAULT_PROFILE, ...(state.profile ?? {}) };
 }
 
+/** The years a course may be assigned to. */
+export const MIN_YEAR_OPTIONS = 8;
+
 function fillYearOptions() {
-  const years = Math.max(4, Math.min(10, profile().minYears || 4));
+  // At least eight years are always offered, whatever the programme length: a
+  // student who has spent longer than the minimum still has courses to record,
+  // and a longer programme simply extends the list further.
+  const p = profile();
+  const years = Math.min(10, Math.max(MIN_YEAR_OPTIONS, p.minYears || 0, p.maxYears || 0));
   const current = els.fYear.value;
   els.fYear.innerHTML = '';
   for (let y = 1; y <= years; y++) {

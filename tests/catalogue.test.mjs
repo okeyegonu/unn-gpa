@@ -356,3 +356,31 @@ test('the rules apply when amending a course too, not just when adding one', () 
   assert.equal(updateCourse(state, id, draft({ department: 'Dept 9' })).result.ok, false);
   assert.equal(updateCourse(state, id, draft({ title: 'Design II' })).result.ok, true);
 });
+
+test('a course may be recorded against any year up to the tenth', () => {
+  for (let year = 1; year <= 10; year++) {
+    const { result } = addCourse(base(), draft({ code: `TST ${100 + year}`, year }));
+    assert.equal(result.ok, true, `year ${year}`);
+  }
+  for (const year of [0, 11, -1]) {
+    assert.equal(addCourse(base(), draft({ year })).result.ok, false, `year ${year}`);
+  }
+});
+
+test('an eighth-year course is grouped and counted like any other', () => {
+  let state = { ...base(), profile: { ...DEFAULT_PROFILE, minYears: 5, maxYears: 8 } };
+  state = addCourse(state, draft({ code: 'AAA 101', units: 2, year: 1, semester: 1 })).state;
+  state = addCourse(state, draft({ code: 'ZZZ 801', units: 3, year: 8, semester: 1 })).state;
+
+  const list = coursesOf(state);
+  assert.deepEqual(list.map((c) => c.year), [1, 8], 'ordered by year');
+  assert.deepEqual(semesterKeys(list).map((k) => k.key), ['y1s1', 'y8s1']);
+  assert.equal(ordinal(8), 'Eighth');
+
+  // A year-8 course in an 8-year maximum has one sitting and no repeats.
+  assert.equal(list[1].maxAttempts, 1);
+
+  const graded = setGrade(state, list[1].id, 'A');
+  assert.equal(summarise(coursesOf(graded), graded).units, 3);
+  assert.equal(summarise(coursesOf(graded), graded).points, 15);
+});

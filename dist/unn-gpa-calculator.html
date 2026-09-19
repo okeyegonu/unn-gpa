@@ -12,7 +12,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b6b3a'/%3E%3Ctext x='16' y='22' font-family='system-ui' font-size='14' font-weight='700' fill='white' text-anchor='middle'%3EGP%3C/text%3E%3C/svg%3E">
 <!--
   UNN GPA Calculator — single-file build.
-  Built 2026-09-19T10:37:25.989Z by tools/build-single-file.mjs.
+  Built 2026-09-19T11:01:47.313Z by tools/build-single-file.mjs.
   Open this file in Firefox or Chrome. Nothing is sent anywhere; your courses and
   grades stay in your own browser.
 -->
@@ -1772,8 +1772,15 @@ function profile() {
   return { ...DEFAULT_PROFILE, ...(state.profile ?? {}) };
 }
 
+/** The years a course may be assigned to. */
+const MIN_YEAR_OPTIONS = 8;
+
 function fillYearOptions() {
-  const years = Math.max(4, Math.min(10, profile().minYears || 4));
+  // At least eight years are always offered, whatever the programme length: a
+  // student who has spent longer than the minimum still has courses to record,
+  // and a longer programme simply extends the list further.
+  const p = profile();
+  const years = Math.min(10, Math.max(MIN_YEAR_OPTIONS, p.minYears || 0, p.maxYears || 0));
   const current = els.fYear.value;
   els.fYear.innerHTML = '';
   for (let y = 1; y <= years; y++) {

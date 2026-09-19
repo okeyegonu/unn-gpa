@@ -42,7 +42,7 @@ One file, about 84 kB, no network access of any kind.
 ### Everything you can run
 
 ```bash
-npm test              # 78 calculation, catalogue and persistence tests
+npm test              # 80 calculation, catalogue and persistence tests
 npm run build         # rebuild the single-file offline copy
 npm run smoke         # end-to-end test in a real Firefox   (needs geckodriver)
 npm run smoke:mobile  # the same at three phone viewports
@@ -90,6 +90,10 @@ Four rules matter, and the tests pin all four:
 Each course needs a **code**, a **unit load**, and the **year and semester** it
 was taken in. The **title** and **department** are optional but worth adding:
 they make the list readable and drive the per-department summary.
+
+The year box offers **eight years** whatever the programme length, since a
+student who has spent longer than the minimum still has courses to record. A
+programme longer than eight years extends the list rather than truncating it.
 
 Courses can be added one at a time as a semester unfolds, or all at once. The
 department, year and semester stay as they were between additions, because a

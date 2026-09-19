@@ -136,6 +136,13 @@ try {
   check('the repeat allowance is explained in plain words',
     (await exec(`return document.getElementById('profile-allowance').textContent;`)).includes('up to 7 times'));
 
+  const years = await exec(`
+    var y = document.getElementById('f-year');
+    return { count: y.options.length, first: y.options[0].text, last: y.options[y.options.length - 1].text };
+  `);
+  check('the year box offers eight years, however long the programme is',
+    years.count === 8 && years.first === 'First year' && years.last === 'Eighth year', JSON.stringify(years));
+
   /* ---- adding courses ---- */
   await addCourse({ code: 'PHY 101', title: 'General Physics I', department: 'Physics', units: 3, year: 1, semester: 1 });
   check('the first course appears and the tools come out', (await rowCount()) === 1 &&
@@ -147,6 +154,20 @@ try {
   check('four courses across two years', (await rowCount()) === 4);
   check('they are grouped into their own semesters',
     (await exec(`return document.querySelectorAll('.semester').length;`)) === 2);
+
+  await addCourse({ code: 'PHY 801', title: 'Late Sitting', department: 'Physics', units: 2, year: 8, semester: 1 });
+  check('a course can be recorded against the eighth year', (await rowCount()) === 5);
+  check('and it is grouped under its own year',
+    (await exec(`return Array.from(document.querySelectorAll('.semester h3')).map(function (h) { return h.textContent.trim(); }).join(' | ');`))
+      .includes('Eighth year'));
+  await exec(`window.confirm = function () { return true; };`);
+  await exec(`
+    var rows = Array.from(document.querySelectorAll('tr[data-id]'));
+    var hit = rows.find(function (tr) { return tr.querySelector('.c-code').textContent.indexOf('PHY 801') === 0; });
+    hit.querySelectorAll('button.row-action')[1].click();
+  `);
+  await settle();
+  check('and removed again cleanly', (await rowCount()) === 4);
 
   /* ---- the checks that stop a broken list ---- */
   await addCourse({ code: 'PHY 101', title: 'typed twice', units: 3, year: 1, semester: 1 });
