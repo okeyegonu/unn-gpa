@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#16191d">
+<meta name="description" content="Incremental GPA calculator for students of the University of Nigeria, Nsukka. Enter your own courses, department by department.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b6b3a'/%3E%3Ctext x='16' y='22' font-family='system-ui' font-size='14' font-weight='700' fill='white' text-anchor='middle'%3EGP%3C/text%3E%3C/svg%3E">
+<title>UNN GPA Calculator</title>
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="titles">
+      <h1>GPA Calculator</h1>
+      <p class="sub">University of Nigeria, Nsukka</p>
+      <p class="meta" id="profile-meta"></p>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-export">Export results</button>
+      <button type="button" id="btn-import">Import results</button>
+      <button type="button" id="btn-reset" class="danger">Reset everything</button>
+      <input type="file" id="file-import" accept="application/json,.json" hidden>
+    </div>
+  </div>
+</header>
+
+<div class="summary-bar" id="summary-bar">
+  <div class="summary-inner">
+    <div class="stat stat-primary">
+      <span class="stat-label">Current GPA</span>
+      <span class="stat-value" id="stat-gpa">—</span>
+      <span class="stat-note" id="stat-class"></span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Graded courses</span>
+      <span class="stat-value" id="stat-courses">0</span>
+      <span class="stat-note" id="stat-attempts"></span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Activated units</span>
+      <span class="stat-value" id="stat-units">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Total quality points</span>
+      <span class="stat-value" id="stat-points">0</span>
+    </div>
+    <div class="save-state" id="save-state" aria-live="polite"></div>
+  </div>
+</div>
+
+<main>
+  <p class="rule-note">
+    Enter your courses, then add each grade as the result is released. A course joins the GPA
+    <strong>only</strong> when you choose a grade for it — leaving it at <strong>—</strong> keeps it dormant,
+    contributing no units and no points. A grade of <strong>F</strong> is different: it scores 0 points,
+    but its units still count towards the denominator.
+    Grades are <strong>A&nbsp;=&nbsp;5, B&nbsp;=&nbsp;4, C&nbsp;=&nbsp;3, D&nbsp;=&nbsp;2, E&nbsp;=&nbsp;1, F&nbsp;=&nbsp;0</strong>
+    across the whole University.
+  </p>
+
+  <section class="panel" id="profile-panel">
+    <header class="panel-head">
+      <h2>Your programme</h2>
+      <button type="button" class="link" id="btn-profile-toggle" aria-expanded="false">Edit</button>
+    </header>
+    <div class="panel-body" id="profile-body" hidden>
+      <p class="hint">
+        Used only to label your courses and to work out how many times a course may be repeated.
+        None of it leaves this browser, and no name or registration number is asked for.
+      </p>
+      <div class="field-grid">
+        <label class="field">
+          <span>Your department</span>
+          <input type="text" id="profile-department" placeholder="e.g. Mechanical Engineering" autocomplete="off"
+                 maxlength="80" pattern="[^0-9]*" title="Department names are written in words, with no numbers.">
+        </label>
+        <label class="field">
+          <span>Programme</span>
+          <input type="text" id="profile-programme" placeholder="e.g. B.Eng. Mechanical Engineering" autocomplete="off"
+                 maxlength="120">
+        </label>
+        <label class="field narrow">
+          <span>Years to graduate</span>
+          <input type="number" id="profile-min-years" min="1" max="10" step="1">
+        </label>
+        <label class="field narrow">
+          <span>Maximum years allowed</span>
+          <input type="number" id="profile-max-years" min="1" max="12" step="1">
+        </label>
+      </div>
+      <div class="form-messages" id="profile-messages" hidden></div>
+      <p class="hint" id="profile-allowance"></p>
+    </div>
+  </section>
+
+  <section class="panel" id="add-panel">
+    <header class="panel-head">
+      <h2 id="add-heading">Add a course</h2>
+      <button type="button" class="link" id="btn-cancel-edit" hidden>Cancel</button>
+    </header>
+    <div class="panel-body">
+      <form id="add-form" autocomplete="off">
+        <div class="field-grid">
+          <label class="field narrow">
+            <span>Course code</span>
+            <input type="text" id="f-code" placeholder="MEE 313" maxlength="9" pattern="[A-Za-z0-9 ]+"
+                   title="Letters and numbers only, at most 8 of them." required>
+          </label>
+          <label class="field wide">
+            <span>Course title</span>
+            <input type="text" id="f-title" placeholder="Mechanical Engineering Design I" maxlength="120"
+                   pattern="[^0-9]*" title="Course titles are written in words, with no numbers.">
+          </label>
+          <label class="field">
+            <span>Department</span>
+            <input type="text" id="f-department" placeholder="Mechanical Engineering" list="departments" maxlength="80"
+                   pattern="[^0-9]*" title="Department names are written in words, with no numbers.">
+            <datalist id="departments"></datalist>
+          </label>
+          <label class="field tiny">
+            <span>Units</span>
+            <input type="number" id="f-units" min="1" max="30" step="1" placeholder="3" required>
+          </label>
+          <label class="field narrow">
+            <span>Year</span>
+            <select id="f-year"></select>
+          </label>
+          <label class="field narrow">
+            <span>Semester</span>
+            <select id="f-semester">
+              <option value="1">First</option>
+              <option value="2">Second</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="btn-add">Add course</button>
+          <span class="hint" id="add-hint">Add them one at a time, or all at once — whichever suits you.</span>
+        </div>
+        <div class="form-messages" id="form-messages" hidden></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="toolbar" id="toolbar" hidden>
+    <label class="field">
+      <span>Find a course</span>
+      <input type="search" id="filter-text" placeholder="e.g. MEE 313, thermodynamics">
+    </label>
+    <label class="field narrow">
+      <span>Department</span>
+      <select id="filter-department"><option value="">All departments</option></select>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="filter-entered">
+      <span>Show only courses I have graded</span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="toggle-precision">
+      <span id="toggle-precision-label">Show full precision</span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="toggle-repeats">
+      <span>I repeated a course</span>
+    </label>
+  </section>
+
+  <div id="empty-state" class="empty">
+    <h2>No courses yet</h2>
+    <p>
+      Add your first course above. You need its code, its unit load, and which year and semester
+      you took it in — the title and department are helpful but optional.
+    </p>
+    <p class="hint">
+      You do not have to enter everything at once. Add courses as you go, and grades as results
+      come out. Whatever you have entered is what the GPA is calculated from.
+    </p>
+  </div>
+
+  <div id="courses-root"></div>
+
+  <section class="totals-panel" id="totals-panel" hidden>
+    <h2>Summary by academic year</h2>
+    <div class="table-scroll">
+      <table class="totals" id="year-totals">
+        <thead>
+          <tr><th>Year</th><th class="num">Graded</th><th class="num">Units</th><th class="num">Points</th><th class="num">Year GPA</th></tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <th>Cumulative (all entered results)</th>
+            <td class="num" id="cum-courses">0</td>
+            <td class="num" id="cum-units">0</td>
+            <td class="num" id="cum-points">0</td>
+            <td class="num strong" id="cum-gpa">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <h2 id="dept-heading" hidden>Summary by department</h2>
+    <div class="table-scroll" id="dept-scroll" hidden>
+      <table class="totals" id="dept-totals">
+        <thead>
+          <tr><th>Department</th><th class="num">Graded</th><th class="num">Units</th><th class="num">Points</th><th class="num">GPA</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="colophon" id="colophon"></footer>
+</main>
+
+<script type="module" src="./src/ui.js"></script>
+</body>
+</html>
