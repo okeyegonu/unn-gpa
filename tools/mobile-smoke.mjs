@@ -55,7 +55,7 @@ for (const vp of VIEWPORTS) {
 
     // wait for render, then seed a few courses so there is a list to lay out
     for (let i = 0; i < 100; i++) {
-      if (await exec(`return !!document.getElementById('add-form');`)) break;
+      if (await exec(`return document.getElementById('btn-add') && !document.getElementById('btn-add').disabled;`)) break;
       await new Promise((r) => setTimeout(r, 100));
     }
     for (const c of [

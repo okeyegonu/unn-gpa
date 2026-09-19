@@ -317,6 +317,11 @@ function wireControls() {
 
   els.addForm.addEventListener('submit', onSubmit);
   els.btnCancelEdit.addEventListener('click', stopEditing);
+  // Now that the handler is attached, the form is safe to use. Before this the
+  // button is inert, so a tap on a slow connection cannot submit the form
+  // natively and reload the page with nothing saved.
+  els.btnAdd.disabled = false;
+  els.addHint.textContent = 'Add them one at a time, or all at once — whichever suits you.';
 
   els.filterText.addEventListener('input', applyFilter);
   els.filterDepartment.addEventListener('change', applyFilter);

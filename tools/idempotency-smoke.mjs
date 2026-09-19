@@ -90,10 +90,10 @@ const sit = async (id, index, grade) => {
 try {
   console.log(`\nIdempotency — ${APP}\n`);
   await go(APP);
-  await waitFor(`!!document.getElementById('add-form')`, 'the page');
+  await waitFor(`document.getElementById('btn-add') && !document.getElementById('btn-add').disabled`, 'the page');
   await exec(`localStorage.clear();`);
   await go(APP);
-  await waitFor(`!!document.getElementById('add-form')`, 'a clean page');
+  await waitFor(`document.getElementById('btn-add') && !document.getElementById('btn-add').disabled`, 'a clean page');
 
   /* 1. Submitting the form twice in a row cannot add the course twice. */
   await addCourse({ code: 'PHY 101', title: 'General Physics I', department: 'Physics', units: 3, year: 1, semester: 1 });

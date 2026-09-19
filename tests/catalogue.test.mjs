@@ -16,6 +16,16 @@ import { emptyState, setGrade, setAttempt, summarise, attemptsOf } from '../src/
 
 const base = () => ({ ...emptyState(), profile: { ...DEFAULT_PROFILE }, courses: [] });
 
+/**
+ * Replace globalThis.crypto for the duration of a callback. It is a getter-only
+ * property, so it has to be redefined rather than assigned.
+ */
+function withCrypto(replacement, fn) {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  Object.defineProperty(globalThis, 'crypto', { value: replacement, configurable: true, writable: true });
+  try { return fn(); } finally { Object.defineProperty(globalThis, 'crypto', original); }
+}
+
 const draft = (over = {}) => ({
   code: 'MEE 313', title: 'Mechanical Engineering Design I',
   department: 'Mechanical Engineering', units: 3, year: 3, semester: 1, ...over,
@@ -32,9 +42,54 @@ test('course codes are stored in one shape', () => {
 });
 
 test('every course gets its own permanent id', () => {
-  const ids = new Set(Array.from({ length: 200 }, newCourseId));
-  assert.equal(ids.size, 200, 'ids do not collide');
+  const ids = new Set(Array.from({ length: 500 }, newCourseId));
+  assert.equal(ids.size, 500, 'ids do not collide');
   for (const id of ids) assert.match(id, /^c_[a-z0-9]+$/i);
+});
+
+test('ids stay unique without crypto.randomUUID, and without crypto at all', async () => {
+  // randomUUID exists only in a secure context, so it is missing over plain
+  // http, from a file:// copy, and on older mobile browsers. getRandomValues
+  // has no such restriction. Both fallbacks have to hold on their own, and
+  // neither is reached in a normal test run — so they are forced here.
+  const real = globalThis.crypto;
+
+  // 1. No randomUUID, but getRandomValues present (an http:// page).
+  const viaBytes = withCrypto({ getRandomValues: real.getRandomValues.bind(real) },
+    () => Array.from({ length: 500 }, newCourseId));
+  assert.equal(new Set(viaBytes).size, 500, 'the getRandomValues fallback must not collide');
+  for (const id of viaBytes) assert.match(id, /^c_[0-9a-f]{12}$/);
+
+  // 2. No crypto at all (a very old browser).
+  const viaClock = withCrypto(undefined, () => Array.from({ length: 500 }, newCourseId));
+  assert.equal(new Set(viaClock).size, 500,
+    'ids generated in the same millisecond must still differ');
+  for (const id of viaClock) assert.match(id, /^c_[a-z0-9]+$/i);
+
+  // 3. And the three sources do not produce ids that clash with each other.
+  const mixed = new Set([...viaBytes, ...viaClock, ...Array.from({ length: 500 }, newCourseId)]);
+  assert.equal(mixed.size, 1500);
+});
+
+test('courses added in one burst all survive a save and reload', async () => {
+  // The collision this guards against was silent: the storage layer
+  // de-duplicates by id, so a second course sharing an id simply disappeared.
+  const { ResultsRepository, MemoryBackend } = await import('../src/storage.js');
+
+  // Force the weakest id source, as a very old browser would.
+  const state = withCrypto(undefined, () => {
+    let s = base();
+    for (let i = 1; i <= 30; i++) {
+      s = addCourse(s, draft({ code: `TST ${100 + i}`, year: (i % 4) + 1 })).state;
+    }
+    return s;
+  });
+  assert.equal(new Set(state.courses.map((c) => c.id)).size, 30, 'thirty distinct ids');
+
+  const repo = new ResultsRepository({ backend: new MemoryBackend() });
+  await repo.save(state);
+  const loaded = await repo.load();
+  assert.equal(loaded.state.courses.length, 30, 'and thirty courses come back');
 });
 
 /* --------------------------------------------------------------- adding */

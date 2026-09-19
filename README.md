@@ -272,6 +272,25 @@ cannot tell a first-year course from a final-year one.
 
 ## On phones
 
+Verified at three viewports in Firefox — 375×667, 390×844 and 768×1024 — for
+layout, tap targets, overflow and live recalculation, and on an insecure
+`http://` LAN address and a `file://` copy, which is where mobile browsers
+differ most from a desktop over HTTPS.
+
+Two mobile-specific hazards are handled explicitly:
+
+- **`crypto.randomUUID` exists only in a secure context.** It is absent over
+  plain http (a phone opening the LAN address), from a `file://` copy, and on
+  iOS Safari before 15.4. Course ids fall back to `crypto.getRandomValues`, and
+  then to a clock-plus-counter, because ids that collided would be worse than
+  useless: the storage layer de-duplicates by id, so a second course sharing one
+  would silently vanish.
+- **The Add course button is inert until the interface is wired.** On a slow
+  connection the form markup arrives before the script does, and a tap in that
+  window would otherwise submit the form natively and reload the page with
+  nothing saved.
+
+
 Below 760px each course becomes a card — code, department and title above, then
 the unit load, grade point and course point labelled beneath, with the grade
 selector on the right at a comfortable tap target and 16px text so mobile Safari

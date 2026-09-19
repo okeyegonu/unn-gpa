@@ -12,12 +12,32 @@
  * A course keeps the id it was created with for life. Deriving the id from the
  * course code would break the moment a student corrected a typo in the code,
  * taking their grades with it.
+ *
+ * Three sources, in order of preference. `crypto.randomUUID` exists only in a
+ * secure context, so it is absent over plain http (a phone opening the LAN
+ * address in a lab), from a file:// copy, and on older mobile browsers.
+ * `crypto.getRandomValues` has no such restriction and covers almost everything
+ * else. The last resort combines the clock with a counter, so that two courses
+ * added in the same millisecond still differ — ids that collide would be worse
+ * than useless, because the storage layer de-duplicates by id and the second
+ * course would vanish.
  */
+let idSequence = 0;
+
 export function newCourseId() {
-  const rand = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
-    .replace(/[^a-z0-9]/gi, '')
-    .slice(0, 12);
-  return `c_${rand}`;
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) return `c_${uuid.replace(/-/g, '').slice(0, 12)}`;
+
+  const bytes = globalThis.crypto?.getRandomValues?.(new Uint8Array(6));
+  if (bytes) {
+    return `c_${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  idSequence = (idSequence + 1) % 1_000_000;
+  const clock = Date.now().toString(36);
+  const seq = idSequence.toString(36).padStart(4, '0');
+  const noise = Math.random().toString(36).slice(2, 8);
+  return `c_${clock}${seq}${noise}`;
 }
 
 /** Course codes are compared and stored in one shape: "MEE 313". */

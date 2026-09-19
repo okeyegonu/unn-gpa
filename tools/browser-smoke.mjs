@@ -109,7 +109,7 @@ const setSwitch = async (id, on) => {
 try {
   console.log(`\nDriving ${APP} in headless Firefox\n`);
   await go(APP);
-  await waitFor(`!!document.getElementById('add-form')`, 'the page to render');
+  await waitFor(`document.getElementById('btn-add') && !document.getElementById('btn-add').disabled`, 'the page to render');
 
   /* ---- an empty calculator ---- */
   const empty = await exec(`return {
@@ -294,7 +294,7 @@ try {
   const before = await summary();
   await go('about:blank');
   await go(APP);
-  await waitFor(`!!document.getElementById('add-form')`, 'reload');
+  await waitFor(`document.getElementById('btn-add') && !document.getElementById('btn-add').disabled`, 'reload');
   await waitFor(`document.querySelectorAll('tr[data-id]').length > 0`, 'the saved course list');
   await settle();
   const after = await summary();

@@ -65,12 +65,12 @@ const exec = (s, a = []) => call('POST', `/session/${sid}/execute/sync`, { scrip
 try {
   await call('POST', `/session/${sid}/url`, { url: FILE });
   for (let i = 0; i < 100; i++) {
-    if (await exec(`return !!document.getElementById('add-form');`)) break;
+    if (await exec(`return document.getElementById('btn-add') && !document.getElementById('btn-add').disabled;`)) break;
     await new Promise((r) => setTimeout(r, 100));
   }
 
   check('the page renders with no server and no network',
-    (await exec(`return !!document.getElementById('add-form');`)) === true);
+    (await exec(`return document.getElementById('btn-add') && !document.getElementById('btn-add').disabled;`)) === true);
   check('it starts with an empty course list',
     (await exec(`return document.getElementById('empty-state').hidden === false;`)) === true);
   check('the page made no external requests',
