@@ -11,6 +11,8 @@
     "smoke": "node tools/browser-smoke.mjs",
     "smoke:mobile": "node tools/mobile-smoke.mjs",
     "smoke:offline": "node tools/file-url-smoke.mjs",
-    "smoke:idempotency": "node tools/idempotency-smoke.mjs"
+    "smoke:idempotency": "node tools/idempotency-smoke.mjs",
+    "smoke:transcript": "node tools/transcript-smoke.mjs",
+    "mockup": "node tools/mockup-statement.mjs"
   }
 }

@@ -17,6 +17,7 @@ import {
   formatGpa, canonicaliseState, attemptsOf,
 } from './gpa-engine.js';
 import { ResultsRepository, PreferencesStore } from './storage.js';
+import { initTranscript } from './transcript-ui.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -103,6 +104,7 @@ async function boot() {
   fillYearOptions();
   syncProfileInputs();
   wireControls();
+  wireTranscript();
   render();
 
   els.saveState.textContent = loaded.found
@@ -397,6 +399,45 @@ async function onReset() {
   stopEditing();
   render();
   els.saveState.textContent = 'Everything cleared';
+}
+
+/**
+ * Which courses must already be graded before a statement may be produced for a
+ * later year.
+ *
+ * The student owns the course list here, so "all of year 1" can only mean the
+ * year-1 courses they have entered. A student who has not listed a course
+ * cannot be held to it.
+ */
+function requiredCoursesForYear(year, currentState, allCourses) {
+  return allCourses.filter((c) => c.year === year);
+}
+
+function wireTranscript() {
+  // The statement is an extra. If anything about it fails, the calculator
+  // itself must still come up.
+  try {
+    initTranscript({
+      getState: () => state,
+      getCourses: () => courses,
+      // The denominator of "Year of Study" is the length of this student's own
+      // programme, so a four-year course reads 3/4 and a five-year one 3/5.
+      programmeYears: () => profile().minYears,
+      // A seven-year programme such as Medicine, with ten years allowed,
+      // reaches 10/7. The range follows the student's own programme.
+      maxYearOfStudy: () => profile().maxYears,
+      requiredCoursesForYear,
+      prefs,
+      institution: 'University of Nigeria, Nsukka',
+      // The course list is the student's own, so their course titles are
+      // printed exactly as they wrote them rather than forced into capitals.
+      uppercaseTitles: false,
+    });
+  } catch (err) {
+    const btn = document.getElementById('btn-pdf');
+    if (btn) { btn.disabled = true; btn.title = `The PDF statement is unavailable: ${err.message}`; }
+    console.error('Statement unavailable:', err);
+  }
 }
 
 /* -------------------------------------------------------------- rendering */

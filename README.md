@@ -42,11 +42,13 @@ One file, about 84 kB, no network access of any kind.
 ### Everything you can run
 
 ```bash
-npm test              # 80 calculation, catalogue and persistence tests
+npm test              # 113 calculation, catalogue, statement and persistence tests
 npm run build         # rebuild the single-file offline copy
 npm run smoke         # end-to-end test in a real Firefox   (needs geckodriver)
 npm run smoke:mobile  # the same at three phone viewports
 npm run smoke:offline # test the single-file build opened from file://
+npm run smoke:transcript   # end-to-end checks for the PDF statement
+npm run mockup <url> <out.pdf>  # print a specimen statement to a real PDF
 npm run smoke:idempotency  # check that no repetition makes the record grow
 ```
 
@@ -164,6 +166,57 @@ on the way in, so an untidy record is repaired once rather than carried around.
 
 ---
 
+## PDF statement of result
+
+Alongside the JSON export — which is unchanged — an **Export as PDF** button
+produces a sessional statement of result, laid out like the one the Department
+of Mechanical Engineering issues.
+
+The top **62.7 mm of the page is left blank** so the sheet can be printed on
+pre-printed University letterhead. That figure is measured, not estimated: the
+reference statement was rendered at 150 dpi, its letterhead's ink ends at
+50.5 mm, and the "To:" line begins at 62.7 mm. Course rows are set at the
+reference's 4.6 mm pitch, which is what lets a full session sit on one sheet.
+
+The statement is produced through the browser's own print dialogue rather than
+by a PDF library. Printing onto headed paper is the primary use, "Save as PDF"
+is the same dialogue, and it keeps a 350 kB dependency out of an application
+that also ships as one offline file. A preview shows the sheet first, with the
+reserved band tinted so it is clearly meant to be empty.
+
+**Your course codes and titles are printed exactly as you wrote them.** The
+course list is yours, so nothing is re-cased or reworded on the way to the page.
+
+**The form** collects the first, middle and surname — printed as
+`SURNAME, Firstname Middlename` — a registration number validated as a
+four-digit year, a slash and six or seven digits, the year of study, the gender
+and the session, written `2023/2024` and never `2023/24`. The Head of Department
+is entered too, since the office changes hands: a title, an optional second
+title where the first is `Engr.`, up to three initials and a surname, printed as
+`Prof. C. U. Anyanwu`.
+
+**The year of study follows your own programme.** It reads `3/5` on a five-year
+course and `2/7` on a seven-year one such as Medicine, and runs as far as the
+maximum years you set — so a Medicine student with ten years allowed can reach
+`10/7`. The denominator is always the length of the programme, never the year
+reached.
+
+**Courses are ticked, never assumed.** The picker lists only courses already
+graded, grouped by semester and opening on the year being reported, everything
+unticked.
+
+**The figures.** The GPA is the session's; the **CGPA is cumulative**, covering
+every result entered for that year and the years before it. A statement is
+refused until every earlier year is complete, because a cumulative figure with
+results missing is misleading; the block names each incomplete year and the
+courses still missing.
+
+The typed details are remembered for next time, with the display preferences,
+never with the results and never in an export.
+
+`npm run mockup <url> <out.pdf>` prints a specimen statement to a real PDF, for
+checking the layout.
+
 ## Reporting precision
 
 GPA figures show two decimal places. A **Show full precision** checkbox switches
@@ -243,6 +296,8 @@ unn-gpa/
 │   ├── grading.js                  the grade scale and the course-point rule
 │   ├── catalogue.js                the student's own course list, and its checks
 │   ├── gpa-engine.js               the GPA calculation — pure, no DOM, no storage
+│   ├── transcript.js               the statement of result: formatting, rules, figures
+│   ├── transcript-ui.js            the statement form, preview and printing
 │   ├── storage.js                  persistence behind an async repository interface
 │   ├── ui.js                       presentation only
 │   └── styles.css                  desktop layout + phone card layout
@@ -255,6 +310,8 @@ unn-gpa/
 ├── tools/
 │   ├── build-single-file.mjs       the offline single-file build
 │   ├── browser-smoke.mjs           end-to-end test in real Firefox
+│   ├── transcript-smoke.mjs        end-to-end checks for the PDF statement
+│   ├── mockup-statement.mjs        prints a specimen statement to a real PDF
 │   ├── idempotency-smoke.mjs       checks that no repetition makes the record grow
 │   ├── mobile-smoke.mjs            phone-viewport layout checks
 │   └── file-url-smoke.mjs          offline-copy checks

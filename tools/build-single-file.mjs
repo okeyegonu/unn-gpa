@@ -21,7 +21,15 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFile(resolve(root, p), 'utf8');
 
 // Dependency order: each module only uses the ones before it.
-const MODULES = ['src/grading.js', 'src/catalogue.js', 'src/gpa-engine.js', 'src/storage.js', 'src/ui.js'];
+const MODULES = [
+  'src/grading.js',
+  'src/catalogue.js',
+  'src/gpa-engine.js',
+  'src/transcript.js',
+  'src/storage.js',
+  'src/transcript-ui.js',
+  'src/ui.js',
+];
 
 /** Strip ES module syntax. Safe here: no re-export blocks, no dynamic imports. */
 function stripModuleSyntax(code, name) {
@@ -36,9 +44,29 @@ const html = await read('index.html');
 const css = await read('src/styles.css');
 
 const bundle = [];
+const declared = new Map();
+const DECLARATION = /^(?:export\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/gm;
+
 for (const m of MODULES) {
+  const source = await read(m);
+
+  // Every module ends up in one scope, so two modules declaring the same name
+  // at the top level is a syntax error that would take the whole application
+  // down. It is caught here rather than in a student's browser.
+  const withoutComments = source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+  for (const [, name] of withoutComments.matchAll(DECLARATION)) {
+    const first = declared.get(name);
+    if (first && first !== m) {
+      throw new Error(
+        `"${name}" is declared at the top level of both ${first} and ${m}. ` +
+        `The bundle puts every module in one scope, so one of them must be renamed.`,
+      );
+    }
+    declared.set(name, m);
+  }
+
   bundle.push(`/* ======== ${m} ======== */`);
-  bundle.push(stripModuleSyntax(await read(m), m));
+  bundle.push(stripModuleSyntax(source, m));
 }
 
 let out = html;
