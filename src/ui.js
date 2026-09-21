@@ -423,9 +423,10 @@ function wireTranscript() {
       // The denominator of "Year of Study" is the length of this student's own
       // programme, so a four-year course reads 3/4 and a five-year one 3/5.
       programmeYears: () => profile().minYears,
-      // A seven-year programme such as Medicine, with ten years allowed,
-      // reaches 10/7. The range follows the student's own programme.
-      maxYearOfStudy: () => profile().maxYears,
+      // One dropdown carrying every year of every programme length -- 1/4 to
+      // 7/4, 1/5 to 8/5, 1/6 to 9/6, 1/7 to 10/7 -- because a student knows
+      // the length of their own course better than any default does.
+      combinedYearOptions: true,
       requiredCoursesForYear,
       prefs,
       institution: 'University of Nigeria, Nsukka',

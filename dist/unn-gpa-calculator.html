@@ -12,7 +12,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b6b3a'/%3E%3Ctext x='16' y='22' font-family='system-ui' font-size='14' font-weight='700' fill='white' text-anchor='middle'%3EGP%3C/text%3E%3C/svg%3E">
 <!--
   UNN GPA Calculator — single-file build.
-  Built 2026-09-21T16:57:58.820Z by tools/build-single-file.mjs.
+  Built 2026-09-21T17:57:19.412Z by tools/build-single-file.mjs.
   Open this file in Firefox or Chrome. Nothing is sent anywhere; your courses and
   grades stay in your own browser.
 -->
@@ -857,8 +857,8 @@ td.cell-units .sub {
             <label class="field"><span>Surname</span>
               <input type="text" id="t-surname" maxlength="40" pattern="[^0-9]*" required></label>
             <label class="field"><span>Reg. No.</span>
-              <input type="text" id="t-regno" placeholder="2021/242857" maxlength="12"
-                     pattern="\d{4}/\d{6,7}" title="A four-digit year, a slash, then six or seven digits."
+              <input type="text" id="t-regno" placeholder="2021/242857" maxlength="14"
+                     pattern="\d{4}/\d{2,9}" title="A four-digit year, a slash, then two to nine digits."
                      inputmode="numeric" required></label>
             <label class="field narrow"><span>Year of Study</span>
               <select id="t-year"></select></label>
@@ -869,7 +869,9 @@ td.cell-units .sub {
                 <option value="Female">Female</option>
               </select></label>
             <label class="field narrow"><span>Session</span>
-              <select id="t-session"></select></label>
+              <input type="text" id="t-session" placeholder="2023/2024" maxlength="9"
+                     inputmode="numeric" autocomplete="off"
+                     title="Write the session in full years, as 2023/2024." required></label>
           </div>
         </fieldset>
 
@@ -1750,8 +1752,17 @@ function nameProblems({ first, surname } = {}) {
 
 /* ------------------------------------------------------- registration number */
 
-/** 4-digit year, a slash, then 6 or 7 digits. For example 2021/242857. */
-const REG_NO_PATTERN = /^\d{4}\/\d{6,7}$/;
+/**
+ * A four-digit year, a slash, then the serial: between 2 and 9 numerals.
+ * For example 2021/242857.
+ *
+ * The range is deliberately wide. Present registration numbers carry six or
+ * seven numerals, but the serial has lengthened before and will again, and a
+ * student turned away by their own registration number would have no recourse.
+ */
+const REG_NO_MIN_DIGITS = 2;
+const REG_NO_MAX_DIGITS = 9;
+const REG_NO_PATTERN = /^\d{4}\/\d{2,9}$/;
 
 function normaliseRegNo(value) {
   return String(value ?? '').trim().replace(/\s+/g, '');
@@ -1761,7 +1772,7 @@ function regNoProblem(value) {
   const v = normaliseRegNo(value);
   if (!v) return 'A registration number is required.';
   if (!REG_NO_PATTERN.test(v)) {
-    return 'A registration number is written as a four-digit year, a slash, then six or seven digits — for example 2021/242857.';
+    return `A registration number is written as a four-digit year, a slash, then between ${REG_NO_MIN_DIGITS} and ${REG_NO_MAX_DIGITS} digits — for example 2021/242857.`;
   }
   const year = Number(v.slice(0, 4));
   const thisYear = new Date().getFullYear();
@@ -1783,11 +1794,54 @@ function formatSession(startYear) {
   return `${y}/${y + 1}`;
 }
 
-function sessionProblem(startYear) {
-  if (formatSession(startYear) === null) {
-    return 'A session is chosen by its opening year, for example 2023 for the 2023/2024 session.';
+/**
+ * Read a session the student has typed. Both shapes are accepted — the opening
+ * year alone, "2023", or the session written out, "2023/2024" — and either way
+ * the opening year comes back. The abbreviated "2023/24" is refused rather than
+ * guessed at, and so is a pair of years that are not consecutive.
+ */
+function parseSession(value) {
+  const text = String(value ?? '').trim().replace(/\s+/g, '');
+  if (!text) return { year: null, problem: 'A session is required.' };
+
+  const single = /^(\d{4})$/.exec(text);
+  if (single) {
+    const y = Number(single[1]);
+    return formatSession(y) === null
+      ? { year: null, problem: `${y} does not look like the opening year of a session.` }
+      : { year: y, problem: null };
   }
-  return null;
+
+  const pair = /^(\d{4})[/\-–](\d{2,4})$/.exec(text);
+  if (!pair) {
+    return {
+      year: null,
+      problem: 'A session is written as its two years in full, for example 2023/2024, or as its opening year alone, 2023.',
+    };
+  }
+
+  const first = Number(pair[1]);
+  const secondText = pair[2];
+  if (secondText.length !== 4) {
+    return {
+      year: null,
+      problem: `A session is written in full years, so ${first}/${secondText} is written ${first}/${first + 1}.`,
+    };
+  }
+  const second = Number(secondText);
+  if (second !== first + 1) {
+    return {
+      year: null,
+      problem: `A session runs over two consecutive years, so ${first} is followed by ${first + 1}, not ${second}.`,
+    };
+  }
+  return formatSession(first) === null
+    ? { year: null, problem: `${first} does not look like the opening year of a session.` }
+    : { year: first, problem: null };
+}
+
+function sessionProblem(value) {
+  return parseSession(value).problem;
 }
 
 /* ------------------------------------------------------------ year of study */
@@ -1805,6 +1859,46 @@ function yearOfStudyOptions(programmeYears, maxYears = 8) {
     value: i + 1,
     label: `${i + 1}/${n}`,
   }));
+}
+
+/**
+ * The programme lengths the University runs, and the grace beyond each.
+ * A programme of n years allows n + 3, which is the rule this Department
+ * applies to its own five-year course.
+ */
+const PROGRAMME_LENGTHS = Object.freeze([4, 5, 6, 7]);
+const EXTRA_YEARS_ALLOWED = 3;
+
+/**
+ * Every year-of-study a student of any of those programmes could be in, grouped
+ * by programme length: 1/4 to 7/4, 1/5 to 8/5, 1/6 to 9/6, 1/7 to 10/7.
+ *
+ * The university-wide calculator offers the whole list in one dropdown, because
+ * the student knows the length of their own course better than a default does.
+ * Each choice carries its denominator with it, so picking 2/7 says both that
+ * they are in their second year and that the programme runs seven.
+ */
+function combinedYearOfStudyOptions(lengths = PROGRAMME_LENGTHS, extra = EXTRA_YEARS_ALLOWED) {
+  return lengths.map((n) => ({
+    programmeYears: n,
+    label: `${n}-year programme`,
+    options: Array.from({ length: n + extra }, (_, i) => ({
+      value: `${i + 1}/${n}`,
+      label: `${i + 1}/${n}`,
+      year: i + 1,
+      programmeYears: n,
+    })),
+  }));
+}
+
+/** Read "3/5" back into its two numbers. */
+function parseYearOfStudy(value) {
+  const m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(String(value ?? ''));
+  if (!m) return null;
+  const year = Number(m[1]);
+  const programmeYears = Number(m[2]);
+  if (year < 1 || programmeYears < 1) return null;
+  return { year, programmeYears };
 }
 
 function formatYearOfStudy(year, programmeYears) {
@@ -2293,6 +2387,18 @@ function initTranscript(opts) {
   restoreDetails();
   wire();
 
+  /**
+   * The year of study, and the length of programme it is measured against.
+   * Where the dropdown carries both, they come from the choice itself; where it
+   * does not, the year is the choice and the length comes from the programme.
+   */
+  function selectedYearOfStudy() {
+    if (opts.combinedYearOptions) {
+      return parseYearOfStudy(els.year.value) ?? { year: 1, programmeYears: programmeYears() };
+    }
+    return { year: Number(els.year.value), programmeYears: programmeYears() };
+  }
+
   /** The programme length may be fixed, or read fresh when it can change. */
   function programmeYears() {
     return typeof opts.programmeYears === 'function' ? opts.programmeYears() : opts.programmeYears;
@@ -2313,20 +2419,29 @@ function initTranscript(opts) {
   function fillSelects() {
     const keep = els.year.value;
     els.year.innerHTML = '';
-    for (const o of yearOfStudyOptions(programmeYears(), maxYearOfStudy())) {
-      els.year.append(new Option(o.label, String(o.value)));
+    if (opts.combinedYearOptions) {
+      // Every year of every programme length in one list, grouped by length,
+      // so the student says both which year they are in and how long their
+      // course runs. The value carries both, as "3/5".
+      for (const group of combinedYearOfStudyOptions()) {
+        const g = document.createElement('optgroup');
+        g.label = group.label;
+        for (const o of group.options) g.append(new Option(o.label, o.value));
+        els.year.append(g);
+      }
+      // Open on the length the student gave in their profile, if it is one of
+      // these, so the usual case needs no hunting.
+      const preferred = `1/${programmeYears()}`;
+      els.year.value = keep && [...els.year.options].some((o) => o.value === keep)
+        ? keep
+        : ([...els.year.options].some((o) => o.value === preferred) ? preferred : els.year.options[0].value);
+    } else {
+      for (const o of yearOfStudyOptions(programmeYears(), maxYearOfStudy())) {
+        els.year.append(new Option(o.label, String(o.value)));
+      }
+      if (keep) els.year.value = keep;
     }
-    if (keep) els.year.value = keep;
 
-    // Sessions: this academic year and the nine before it. A session opens in
-    // the year named, so before about September the current session is the
-    // previous calendar year's.
-    const now = new Date();
-    const currentOpening = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-    els.session.innerHTML = '';
-    for (let y = currentOpening; y > currentOpening - 10; y--) {
-      els.session.append(new Option(formatSession(y), String(y)));
-    }
 
     els.sal1.innerHTML = '';
     for (const s of HOD_SALUTATIONS_1) els.sal1.append(new Option(s, s));
@@ -2420,7 +2535,7 @@ function initTranscript(opts) {
     filter.id = 't-course-year';
     filter.append(new Option('All years', 'all'));
     for (const y of years) filter.append(new Option(`Year ${y}`, String(y)));
-    const wanted = els.year.value;
+    const wanted = String(selectedYearOfStudy().year);
     filter.value = years.includes(Number(wanted)) ? wanted : 'all';
     filter.addEventListener('change', () => applyPickFilter());
     tools.querySelector('label').append(filter);
@@ -2567,7 +2682,7 @@ function initTranscript(opts) {
     els.year.addEventListener('change', () => {
       const filter = els.courses.querySelector('#t-course-year');
       if (!filter) return;
-      const wanted = els.year.value;
+      const wanted = String(selectedYearOfStudy().year);
       if ([...filter.options].some((o) => o.value === wanted)) filter.value = wanted;
       applyPickFilter();
     });
@@ -2592,8 +2707,8 @@ function initTranscript(opts) {
     const state = opts.getState();
     const student = readStudent();
     const hod = readHod();
-    const year = Number(els.year.value);
-    const session = Number(els.session.value);
+    const { year, programmeYears: denominator } = selectedYearOfStudy();
+    const session = parseSession(els.session.value).year;
     const firstSemester = ticked(1);
     const secondSemester = ticked(2);
 
@@ -2621,7 +2736,7 @@ function initTranscript(opts) {
     const cumulativeCourses = opts.getCourses().filter((c) => c.year <= year);
 
     const t = buildTranscript({
-      student, hod, session, yearOfStudy: year, programmeYears: programmeYears(),
+      student, hod, session, yearOfStudy: year, programmeYears: denominator,
       firstSemester, secondSemester, cumulativeCourses, state,
       uppercaseTitles: opts.uppercaseTitles !== false,
     });
@@ -3057,9 +3172,10 @@ function wireTranscript() {
       // The denominator of "Year of Study" is the length of this student's own
       // programme, so a four-year course reads 3/4 and a five-year one 3/5.
       programmeYears: () => profile().minYears,
-      // A seven-year programme such as Medicine, with ten years allowed,
-      // reaches 10/7. The range follows the student's own programme.
-      maxYearOfStudy: () => profile().maxYears,
+      // One dropdown carrying every year of every programme length -- 1/4 to
+      // 7/4, 1/5 to 8/5, 1/6 to 9/6, 1/7 to 10/7 -- because a student knows
+      // the length of their own course better than any default does.
+      combinedYearOptions: true,
       requiredCoursesForYear,
       prefs,
       institution: 'University of Nigeria, Nsukka',

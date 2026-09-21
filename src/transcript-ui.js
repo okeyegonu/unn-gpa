@@ -13,7 +13,8 @@
 
 import {
   GENDERS, HOD_SALUTATIONS_1, HOD_SALUTATIONS_2, HOD_SALUTATION_2_APPLIES_TO,
-  yearOfStudyOptions, formatHod, formatSession,
+  yearOfStudyOptions, combinedYearOfStudyOptions, parseYearOfStudy,
+  formatHod, parseSession,
   transcriptProblems, prerequisiteCheck, buildTranscript,
 } from './transcript.js';
 import { attemptsOf, evaluateCourse } from './gpa-engine.js';
@@ -64,6 +65,18 @@ export function initTranscript(opts) {
   restoreDetails();
   wire();
 
+  /**
+   * The year of study, and the length of programme it is measured against.
+   * Where the dropdown carries both, they come from the choice itself; where it
+   * does not, the year is the choice and the length comes from the programme.
+   */
+  function selectedYearOfStudy() {
+    if (opts.combinedYearOptions) {
+      return parseYearOfStudy(els.year.value) ?? { year: 1, programmeYears: programmeYears() };
+    }
+    return { year: Number(els.year.value), programmeYears: programmeYears() };
+  }
+
   /** The programme length may be fixed, or read fresh when it can change. */
   function programmeYears() {
     return typeof opts.programmeYears === 'function' ? opts.programmeYears() : opts.programmeYears;
@@ -84,20 +97,29 @@ export function initTranscript(opts) {
   function fillSelects() {
     const keep = els.year.value;
     els.year.innerHTML = '';
-    for (const o of yearOfStudyOptions(programmeYears(), maxYearOfStudy())) {
-      els.year.append(new Option(o.label, String(o.value)));
+    if (opts.combinedYearOptions) {
+      // Every year of every programme length in one list, grouped by length,
+      // so the student says both which year they are in and how long their
+      // course runs. The value carries both, as "3/5".
+      for (const group of combinedYearOfStudyOptions()) {
+        const g = document.createElement('optgroup');
+        g.label = group.label;
+        for (const o of group.options) g.append(new Option(o.label, o.value));
+        els.year.append(g);
+      }
+      // Open on the length the student gave in their profile, if it is one of
+      // these, so the usual case needs no hunting.
+      const preferred = `1/${programmeYears()}`;
+      els.year.value = keep && [...els.year.options].some((o) => o.value === keep)
+        ? keep
+        : ([...els.year.options].some((o) => o.value === preferred) ? preferred : els.year.options[0].value);
+    } else {
+      for (const o of yearOfStudyOptions(programmeYears(), maxYearOfStudy())) {
+        els.year.append(new Option(o.label, String(o.value)));
+      }
+      if (keep) els.year.value = keep;
     }
-    if (keep) els.year.value = keep;
 
-    // Sessions: this academic year and the nine before it. A session opens in
-    // the year named, so before about September the current session is the
-    // previous calendar year's.
-    const now = new Date();
-    const currentOpening = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-    els.session.innerHTML = '';
-    for (let y = currentOpening; y > currentOpening - 10; y--) {
-      els.session.append(new Option(formatSession(y), String(y)));
-    }
 
     els.sal1.innerHTML = '';
     for (const s of HOD_SALUTATIONS_1) els.sal1.append(new Option(s, s));
@@ -191,7 +213,7 @@ export function initTranscript(opts) {
     filter.id = 't-course-year';
     filter.append(new Option('All years', 'all'));
     for (const y of years) filter.append(new Option(`Year ${y}`, String(y)));
-    const wanted = els.year.value;
+    const wanted = String(selectedYearOfStudy().year);
     filter.value = years.includes(Number(wanted)) ? wanted : 'all';
     filter.addEventListener('change', () => applyPickFilter());
     tools.querySelector('label').append(filter);
@@ -338,7 +360,7 @@ export function initTranscript(opts) {
     els.year.addEventListener('change', () => {
       const filter = els.courses.querySelector('#t-course-year');
       if (!filter) return;
-      const wanted = els.year.value;
+      const wanted = String(selectedYearOfStudy().year);
       if ([...filter.options].some((o) => o.value === wanted)) filter.value = wanted;
       applyPickFilter();
     });
@@ -363,8 +385,8 @@ export function initTranscript(opts) {
     const state = opts.getState();
     const student = readStudent();
     const hod = readHod();
-    const year = Number(els.year.value);
-    const session = Number(els.session.value);
+    const { year, programmeYears: denominator } = selectedYearOfStudy();
+    const session = parseSession(els.session.value).year;
     const firstSemester = ticked(1);
     const secondSemester = ticked(2);
 
@@ -392,7 +414,7 @@ export function initTranscript(opts) {
     const cumulativeCourses = opts.getCourses().filter((c) => c.year <= year);
 
     const t = buildTranscript({
-      student, hod, session, yearOfStudy: year, programmeYears: programmeYears(),
+      student, hod, session, yearOfStudy: year, programmeYears: denominator,
       firstSemester, secondSemester, cumulativeCourses, state,
       uppercaseTitles: opts.uppercaseTitles !== false,
     });

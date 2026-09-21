@@ -82,6 +82,7 @@ const gradeYears = (years, grade) => exec(`
 `);
 
 const fillForm = () => exec(`
+  document.getElementById('t-session').value = '2023/2024';
   document.getElementById('t-first').value = 'Ifeoma';
   document.getElementById('t-middle').value = 'Blessing';
   document.getElementById('t-surname').value = 'Okechukwu';
@@ -152,22 +153,29 @@ try {
   /* ---- the fields ---- */
   const fields = await exec(`return {
     years: Array.from(document.getElementById('t-year').options).map(function (o) { return o.text; }),
+    groups: Array.from(document.getElementById('t-year').querySelectorAll('optgroup')).map(function (g) { return g.label; }),
     genders: Array.from(document.getElementById('t-gender').options).map(function (o) { return o.text; }),
     genderLabel: document.getElementById('t-gender').closest('label').querySelector('span').textContent.trim(),
-    sessions: Array.from(document.getElementById('t-session').options).slice(0, 3).map(function (o) { return o.text; }),
+    sessionIsTyped: document.getElementById('t-session').tagName === 'INPUT',
     sal1: Array.from(document.getElementById('t-sal1').options).map(function (o) { return o.text; }),
     sal2: Array.from(document.getElementById('t-sal2').options).map(function (o) { return o.text; }),
     sal2Hidden: document.getElementById('t-sal2-field').hidden
   };`);
-  // The default profile is four years to graduate with seven allowed, so the
-  // denominator is 4 and the list runs as far as the seventh year.
-  check('Year of Study runs over the programme, as far as the years allowed',
-    fields.years.join(',') === '1/4,2/4,3/4,4/4,5/4,6/4,7/4', fields.years.join(','));
+  // One dropdown carries every programme length: 1/4 to 7/4, 1/5 to 8/5,
+  // 1/6 to 9/6 and 1/7 to 10/7 — thirty-four choices, grouped by length.
+  check('Year of Study offers every programme length in one list',
+    fields.years.length === 34 &&
+    ['1/4', '7/4', '1/5', '8/5', '1/6', '9/6', '1/7', '10/7'].every((v) => fields.years.includes(v)) &&
+    !['8/4', '9/5', '10/6', '11/7'].some((v) => fields.years.includes(v)),
+    `${fields.years.length} options: ${fields.years.slice(0, 8).join(',')} …`);
+  check('and they are grouped by programme length',
+    fields.groups.join(',') === '4-year programme,5-year programme,6-year programme,7-year programme',
+    fields.groups.join(','));
   check('the label reads Gender, not Sex', fields.genderLabel === 'Gender', fields.genderLabel);
   check('Gender offers Male and Female',
     fields.genders.join(',') === '—,Male,Female', fields.genders.join(','));
-  check('sessions are written in full years',
-    fields.sessions.every((t) => /^\d{4}\/\d{4}$/.test(t)), fields.sessions.join(', '));
+  check('the session is typed by hand, not chosen from a list',
+    fields.sessionIsTyped === true);
   check('the Head of Department titles are offered',
     fields.sal1.join(',') === 'Engr.,Prof.,Dr.,Mr.' && fields.sal2.join(',') === 'Prof.,Dr.,Mr.',
     `${fields.sal1.join(',')} | ${fields.sal2.join(',')}`);
@@ -195,7 +203,7 @@ try {
   await exec(`document.getElementById('btn-pdf').click();`);
   await settle();
   await fillForm();
-  await exec(`var y = document.getElementById('t-year'); y.value = '3'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
+  await exec(`var y = document.getElementById('t-year'); y.value = '3/5'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
   const t1 = await tick(1, 2);
   check('courses can be ticked, and start unticked',
     t1 === 2 && (await exec(`return document.querySelectorAll('#t-courses input:checked').length;`)) === 2);
@@ -212,7 +220,7 @@ try {
   check('nothing was printed', (await exec(`return window.__printed;`)) === 0);
 
   /* ---- a year-1 statement is allowed ---- */
-  await exec(`var y = document.getElementById('t-year'); y.value = '1'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
+  await exec(`var y = document.getElementById('t-year'); y.value = '1/5'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
   await submit();
   check('a year-1 statement needs nothing earlier and is produced',
     (await exec(`return document.getElementById('preview-overlay').hidden === false;`)) === true);
@@ -253,7 +261,7 @@ try {
   check('the details line carries Name, Reg. No, Year and Gender',
     /Name: OKECHUKWU, Ifeoma B\./.test(sheet.details) &&
     /Reg\. No: 2021\/242857/.test(sheet.details) &&
-    /Year: 1\/4/.test(sheet.details) &&
+    /Year: 1\/5/.test(sheet.details) &&
     /Gender: Female/.test(sheet.details) && !/Sex/.test(sheet.details),
     sheet.details);
   check('the semester heading writes the session in full years',
@@ -343,7 +351,7 @@ try {
   await exec(`document.getElementById('btn-pdf').click();`);
   await settle();
   await fillForm();
-  await exec(`var y = document.getElementById('t-year'); y.value = '2'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
+  await exec(`var y = document.getElementById('t-year'); y.value = '2/5'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
   await settle();
   check('choosing a different year moves the picker to it',
     (await exec(`return document.getElementById('t-course-year').value;`)) === '2');

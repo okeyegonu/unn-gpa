@@ -7,9 +7,9 @@ import assert from 'node:assert/strict';
 import {
   LETTERHEAD_RESERVE_MM,
   formatFullName, formatShortName, nameProblems,
-  normaliseRegNo, regNoProblem, REG_NO_PATTERN,
-  formatSession, sessionProblem,
-  yearOfStudyOptions, formatYearOfStudy,
+  normaliseRegNo, regNoProblem, REG_NO_PATTERN, REG_NO_MIN_DIGITS, REG_NO_MAX_DIGITS,
+  formatSession, sessionProblem, parseSession,
+  yearOfStudyOptions, formatYearOfStudy, combinedYearOfStudyOptions, parseYearOfStudy,
   GENDERS, genderProblem,
   HOD_SALUTATIONS_1, HOD_SALUTATIONS_2, formatHod, hodProblems,
   prerequisiteCheck, buildTranscript, transcriptProblems,
@@ -89,12 +89,21 @@ test('a name must be given, and cannot contain numbers', () => {
 
 /* ------------------------------------------------------ registration number */
 
-test('a registration number is a year, a slash and six or seven digits', () => {
-  for (const good of ['2021/242857', '2019/1234567', '2024/000001']) {
+test('a registration number is a four-digit year, a slash and 2 to 9 digits', () => {
+  assert.equal(REG_NO_MIN_DIGITS, 2);
+  assert.equal(REG_NO_MAX_DIGITS, 9);
+
+  // Today's numbers carry six or seven numerals; the range allows for growth.
+  for (const good of ['2021/242857', '2019/1234567', '2024/000001', '2024/12', '2024/123456789']) {
     assert.equal(regNoProblem(good), null, good);
     assert.ok(REG_NO_PATTERN.test(good));
   }
-  for (const bad of ['2021/24285', '2021/12345678', '21/242857', '2021-242857', '2021/abcdef', '242857', '']) {
+  // Every serial length from two to nine is accepted.
+  for (let n = REG_NO_MIN_DIGITS; n <= REG_NO_MAX_DIGITS; n++) {
+    assert.equal(regNoProblem(`2024/${'1'.repeat(n)}`), null, `${n} digits`);
+  }
+  for (const bad of ['2024/1', '2024/1234567890', '21/242857', '20211/242857',
+                     '2021-242857', '2021/abcdef', '2021/24285A', '242857', '']) {
     assert.ok(regNoProblem(bad), `${bad} should be refused`);
   }
 });
@@ -124,9 +133,37 @@ test('a session that spans the century still reads in full', () => {
 });
 
 test('a nonsensical session is refused', () => {
-  for (const bad of ['', null, 'abc', 1200, 2500, 20.5]) {
+  for (const bad of ['', null, 'abc', '1200', '2500', 'twenty']) {
     assert.ok(sessionProblem(bad), String(bad));
   }
+});
+
+test('the session is typed, and either shape is accepted', () => {
+  // The opening year alone, or the session written out in full.
+  assert.deepEqual(parseSession('2023'), { year: 2023, problem: null });
+  assert.deepEqual(parseSession('2023/2024'), { year: 2023, problem: null });
+  assert.deepEqual(parseSession('  2023 / 2024  '), { year: 2023, problem: null },
+    'spacing is of no consequence');
+  assert.equal(formatSession(parseSession('2023/2024').year), '2023/2024');
+});
+
+test('an abbreviated session is refused, and the full form suggested', () => {
+  const r = parseSession('2023/24');
+  assert.equal(r.year, null);
+  assert.match(r.problem, /written in full years/i);
+  assert.match(r.problem, /2023\/2024/, 'and it says what to write instead');
+});
+
+test('two years that are not consecutive are refused', () => {
+  const r = parseSession('2023/2025');
+  assert.equal(r.year, null);
+  assert.match(r.problem, /consecutive/i);
+  assert.match(r.problem, /2024/);
+});
+
+test('a session outside living memory is refused', () => {
+  assert.match(parseSession('1850').problem, /opening year/i);
+  assert.match(parseSession('2500/2501').problem, /opening year/i);
 });
 
 /* ------------------------------------------------------------ year of study */
@@ -379,4 +416,63 @@ test('a long programme such as Medicine is not cut off at eight years', () => {
   // Department's statement does.
   assert.deepEqual(yearOfStudyOptions(5, 8).map((o) => o.label),
     ['1/5', '2/5', '3/5', '4/5', '5/5', '6/5', '7/5', '8/5']);
+});
+
+/* --------------------------------------------------------------------------
+   The university-wide dropdown carries every programme length at once.
+   -------------------------------------------------------------------------- */
+
+test('one dropdown covers 1/4 to 7/4, 1/5 to 8/5, 1/6 to 9/6 and 1/7 to 10/7', () => {
+  const groups = combinedYearOfStudyOptions();
+  assert.deepEqual(groups.map((g) => g.programmeYears), [4, 5, 6, 7]);
+  assert.deepEqual(groups.map((g) => g.options.length), [7, 8, 9, 10]);
+
+  const all = groups.flatMap((g) => g.options.map((o) => o.label));
+  assert.equal(all.length, 34, 'thirty-four choices in all');
+  for (const expected of ['1/4', '7/4', '1/5', '8/5', '1/6', '9/6', '1/7', '10/7']) {
+    assert.ok(all.includes(expected), expected);
+  }
+  // A programme of n years allows n + 3 and no more.
+  assert.ok(!all.includes('8/4'), 'a four-year programme stops at 7/4');
+  assert.ok(!all.includes('9/5'), 'a five-year programme stops at 8/5');
+  assert.ok(!all.includes('10/6'), 'a six-year programme stops at 9/6');
+  assert.ok(!all.includes('11/7'), 'a seven-year programme stops at 10/7');
+});
+
+test('each choice carries its own denominator', () => {
+  const groups = combinedYearOfStudyOptions();
+  for (const g of groups) {
+    for (const o of g.options) {
+      assert.equal(o.value, `${o.year}/${o.programmeYears}`);
+      assert.equal(o.programmeYears, g.programmeYears);
+      assert.deepEqual(parseYearOfStudy(o.value), { year: o.year, programmeYears: o.programmeYears });
+    }
+  }
+});
+
+test('a choice reads back into the year and the programme length', () => {
+  assert.deepEqual(parseYearOfStudy('2/7'), { year: 2, programmeYears: 7 });
+  assert.deepEqual(parseYearOfStudy(' 10 / 7 '), { year: 10, programmeYears: 7 });
+  for (const bad of ['', 'x', '3', '3/', '/5', '0/5', '3/0', null, undefined]) {
+    assert.equal(parseYearOfStudy(bad), null, String(bad));
+  }
+});
+
+test('the statement prints whatever denominator was chosen', () => {
+  const phy = courses.find((c) => c.code === 'PHY 101');
+  const s = setGrade(blank(), phy.id, 'A');
+  const make = (value) => {
+    const { year, programmeYears } = parseYearOfStudy(value);
+    return buildTranscript({
+      student: { first: 'A', surname: 'B', regNo: '2021/242857', gender: 'Male' },
+      hod: { salutation1: 'Dr.', initial1: 'M', surname: 'Eke' },
+      session: 2023, yearOfStudy: year, programmeYears,
+      firstSemester: [phy], secondSemester: [], cumulativeCourses: [phy], state: s,
+      uppercaseTitles: false,
+    }).yearOfStudy;
+  };
+  assert.equal(make('3/4'), '3/4');
+  assert.equal(make('3/5'), '3/5');
+  assert.equal(make('9/6'), '9/6');
+  assert.equal(make('10/7'), '10/7');
 });
