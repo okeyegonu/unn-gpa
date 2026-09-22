@@ -11,7 +11,7 @@ import {
   formatSession, sessionProblem, parseSession,
   yearOfStudyOptions, formatYearOfStudy, combinedYearOfStudyOptions, parseYearOfStudy,
   GENDERS, genderProblem,
-  HOD_SALUTATIONS_1, HOD_SALUTATIONS_2, formatHod, hodProblems,
+  ADVISER_SALUTATIONS_1, ADVISER_SALUTATIONS_2, formatAdviser, adviserProblems,
   prerequisiteCheck, buildTranscript, transcriptProblems,
 } from '../src/transcript.js';
 import { DEFAULT_PROFILE, addCourse, coursesOf } from '../src/catalogue.js';
@@ -193,38 +193,38 @@ test('the field offers Male and Female, and is called Gender', () => {
   assert.match(genderProblem(''), /Male or Female/);
 });
 
-/* ------------------------------------------------------- head of department */
+/* ------------------------------------------------------- academic adviser */
 
-test('the Head of Department reads Engr. Dr. M. N. Eke', () => {
-  assert.equal(formatHod({
+test('the Academic Adviser reads Engr. Dr. M. N. Eke', () => {
+  assert.equal(formatAdviser({
     salutation1: 'Engr.', salutation2: 'Dr.',
     initial1: 'M', initial2: 'N', surname: 'Eke',
   }), 'Engr. Dr. M. N. Eke');
 });
 
 test('the second title applies only to Engr.', () => {
-  assert.equal(formatHod({ salutation1: 'Prof.', salutation2: 'Dr.', initial1: 'A', surname: 'Okoro' }),
+  assert.equal(formatAdviser({ salutation1: 'Prof.', salutation2: 'Dr.', initial1: 'A', surname: 'Okoro' }),
     'Prof. A. Okoro', 'a second title is ignored after Prof.');
-  assert.equal(formatHod({ salutation1: 'Engr.', salutation2: 'Prof.', initial1: 'A', surname: 'Okoro' }),
+  assert.equal(formatAdviser({ salutation1: 'Engr.', salutation2: 'Prof.', initial1: 'A', surname: 'Okoro' }),
     'Engr. Prof. A. Okoro');
-  assert.equal(formatHod({ salutation1: 'Engr.', initial1: 'A', surname: 'Okoro' }),
+  assert.equal(formatAdviser({ salutation1: 'Engr.', initial1: 'A', surname: 'Okoro' }),
     'Engr. A. Okoro', 'and it is optional');
-  assert.deepEqual(HOD_SALUTATIONS_1, ['Engr.', 'Prof.', 'Dr.', 'Mr.']);
-  assert.deepEqual(HOD_SALUTATIONS_2, ['Prof.', 'Dr.', 'Mr.']);
+  assert.deepEqual(ADVISER_SALUTATIONS_1, ['Engr.', 'Prof.', 'Dr.', 'Mr.']);
+  assert.deepEqual(ADVISER_SALUTATIONS_2, ['Prof.', 'Dr.', 'Mr.']);
 });
 
 test('initials are normalised to a letter and a full stop', () => {
-  assert.equal(formatHod({ salutation1: 'Dr.', initial1: 'm', initial2: 'n.', surname: 'eke' }),
+  assert.equal(formatAdviser({ salutation1: 'Dr.', initial1: 'm', initial2: 'n.', surname: 'eke' }),
     'Dr. M. N. Eke');
-  assert.equal(formatHod({ salutation1: 'Dr.', initial1: 'M', initial2: 'N', initial3: 'O', surname: 'Eke' }),
+  assert.equal(formatAdviser({ salutation1: 'Dr.', initial1: 'M', initial2: 'N', initial3: 'O', surname: 'Eke' }),
     'Dr. M. N. O. Eke', 'a third initial is allowed');
 });
 
-test('a Head of Department needs a title, an initial and a surname', () => {
-  assert.deepEqual(hodProblems({ salutation1: 'Engr.', initial1: 'M', surname: 'Eke' }), []);
-  assert.match(hodProblems({ initial1: 'M', surname: 'Eke' }).join(' '), /title/i);
-  assert.match(hodProblems({ salutation1: 'Dr.', surname: 'Eke' }).join(' '), /first initial/i);
-  assert.match(hodProblems({ salutation1: 'Dr.', initial1: 'M' }).join(' '), /surname is required/i);
+test('a Academic Adviser needs a title, an initial and a surname', () => {
+  assert.deepEqual(adviserProblems({ salutation1: 'Engr.', initial1: 'M', surname: 'Eke' }), []);
+  assert.match(adviserProblems({ initial1: 'M', surname: 'Eke' }).join(' '), /title/i);
+  assert.match(adviserProblems({ salutation1: 'Dr.', surname: 'Eke' }).join(' '), /first initial/i);
+  assert.match(adviserProblems({ salutation1: 'Dr.', initial1: 'M' }).join(' '), /surname is required/i);
 });
 
 /* ------------------------------------------------------- the prerequisite */
@@ -290,7 +290,7 @@ test('the session GPA covers the session; the CGPA covers everything before it',
 
   const t = buildTranscript({
     student: { first: 'Ifeoma', middle: 'Blessing', surname: 'Okechukwu', regNo: '2021/242857', gender: 'Female' },
-    hod: { salutation1: 'Engr.', salutation2: 'Dr.', initial1: 'M', initial2: 'N', surname: 'Eke' },
+    adviser: { salutation1: 'Engr.', salutation2: 'Dr.', initial1: 'M', initial2: 'N', surname: 'Eke' },
     session: 2023, yearOfStudy: 2, programmeYears: 5,
     firstSemester: y2first, secondSemester: y2second,
     cumulativeCourses: [...y1, ...y2first, ...y2second],
@@ -314,7 +314,7 @@ test('the statement carries every formatted field', () => {
 
   const t = buildTranscript({
     student: { first: 'Ifeoma', middle: 'Blessing', surname: 'Okechukwu', regNo: ' 2021/242857 ', gender: 'Female' },
-    hod: { salutation1: 'Engr.', salutation2: 'Dr.', initial1: 'M', initial2: 'N', surname: 'Eke' },
+    adviser: { salutation1: 'Engr.', salutation2: 'Dr.', initial1: 'M', initial2: 'N', surname: 'Eke' },
     session: 2023, yearOfStudy: 1, programmeYears: 5,
     firstSemester: y1s1, secondSemester: [],
     cumulativeCourses: y1s1, state: s,
@@ -326,7 +326,7 @@ test('the statement carries every formatted field', () => {
   assert.equal(t.yearOfStudy, '1/5');
   assert.equal(t.gender, 'Female');
   assert.equal(t.session, '2023/2024');
-  assert.equal(t.hod, 'Engr. Dr. M. N. Eke');
+  assert.equal(t.adviser, 'Engr. Dr. M. N. Eke');
   assert.equal(t.semesters[0].rows.length, y1s1.length);
   assert.equal(t.semesters[1].rows.length, 0);
   assert.equal(t.semesters[0].rows[0].title, t.semesters[0].rows[0].title.toUpperCase(),
@@ -340,7 +340,7 @@ test('a repeated course shows every sitting on the statement', () => {
 
   const t = buildTranscript({
     student: { first: 'A', surname: 'B', regNo: '2021/242857', gender: 'Male' },
-    hod: { salutation1: 'Dr.', initial1: 'M', surname: 'Eke' },
+    adviser: { salutation1: 'Dr.', initial1: 'M', surname: 'Eke' },
     session: 2023, yearOfStudy: 2, programmeYears: 5,
     firstSemester: [mee313], secondSemester: [],
     cumulativeCourses: [mee313], state: s,
@@ -359,11 +359,11 @@ test('the year-of-study denominator follows the student\'s own programme', () =>
 test('everything wrong is reported at once, not one thing at a time', () => {
   const problems = transcriptProblems({
     student: { first: '', surname: '', regNo: 'nonsense', gender: '' },
-    hod: {}, session: 'x', yearOfStudy: 0,
+    adviser: {}, session: 'x', yearOfStudy: 0,
     firstSemester: [], secondSemester: [],
   });
   for (const expected of [/first name/i, /surname/i, /registration number/i, /Male or Female/i,
-    /session/i, /year of study/i, /at least one course/i, /title for the Head/i]) {
+    /session/i, /year of study/i, /at least one course/i, /title for the Academic Adviser/i]) {
     assert.ok(problems.some((p) => expected.test(p)), `expected a problem matching ${expected}`);
   }
 });
@@ -372,7 +372,7 @@ test('a complete form reports no problems', () => {
   const y1s1 = courses.filter((c) => c.year === 1 && c.semester === 1);
   assert.deepEqual(transcriptProblems({
     student: { first: 'Ifeoma', middle: 'Blessing', surname: 'Okechukwu', regNo: '2021/242857', gender: 'Female' },
-    hod: { salutation1: 'Engr.', salutation2: 'Dr.', initial1: 'M', initial2: 'N', surname: 'Eke' },
+    adviser: { salutation1: 'Engr.', salutation2: 'Dr.', initial1: 'M', initial2: 'N', surname: 'Eke' },
     session: 2023, yearOfStudy: 1,
     firstSemester: y1s1, secondSemester: [],
   }), []);
@@ -383,7 +383,7 @@ test('a student-written course title is printed exactly as they wrote it', () =>
   const s = setGrade(blank(), phy.id, 'A');
   const args = {
     student: { first: 'A', surname: 'B', regNo: '2021/242857', gender: 'Male' },
-    hod: { salutation1: 'Dr.', initial1: 'M', surname: 'Eke' },
+    adviser: { salutation1: 'Dr.', initial1: 'M', surname: 'Eke' },
     session: 2023, yearOfStudy: 1, programmeYears: 4,
     firstSemester: [phy], secondSemester: [], cumulativeCourses: [phy], state: s,
   };
@@ -465,7 +465,7 @@ test('the statement prints whatever denominator was chosen', () => {
     const { year, programmeYears } = parseYearOfStudy(value);
     return buildTranscript({
       student: { first: 'A', surname: 'B', regNo: '2021/242857', gender: 'Male' },
-      hod: { salutation1: 'Dr.', initial1: 'M', surname: 'Eke' },
+      adviser: { salutation1: 'Dr.', initial1: 'M', surname: 'Eke' },
       session: 2023, yearOfStudy: year, programmeYears,
       firstSemester: [phy], secondSemester: [], cumulativeCourses: [phy], state: s,
       uppercaseTitles: false,
