@@ -476,3 +476,17 @@ test('the statement prints whatever denominator was chosen', () => {
   assert.equal(make('9/6'), '9/6');
   assert.equal(make('10/7'), '10/7');
 });
+
+test('no adviser is assumed: the statement refuses until the student names one', () => {
+  // Every student has a different Academic Adviser, so nothing is filled in
+  // for them and no name is built into the calculator.
+  assert.equal(formatAdviser({}), '');
+  assert.equal(formatAdviser({ salutation1: 'Dr.' }), 'Dr.', 'a title alone names nobody');
+  assert.equal(adviserProblems({}).length, 3);
+
+  // Two students, two advisers, from the same calculator.
+  assert.equal(formatAdviser({ salutation1: 'Dr.', initial1: 'C', initial2: 'U', surname: 'Anyanwu' }),
+    'Dr. C. U. Anyanwu');
+  assert.equal(formatAdviser({ salutation1: 'Engr.', salutation2: 'Prof.', initial1: 'K', surname: 'Obi' }),
+    'Engr. Prof. K. Obi');
+});
